@@ -18,14 +18,14 @@ display_ascii_art() {
 # Function to display loading animation
 loading_animation() {
     spin='|/-\'
-    echo -n ' '
-    while [ "$(ps | grep -c '[t]or')" -gt 0 ]; do
-        for i in $spin; do
-            echo -ne "\b$i"
+    i=0
+    while [ "$i" -le 100 ]; do
+        for j in $spin; do
+            echo -ne "\b$j"
             sleep 0.1
         done
+        i=$((i+1))
     done
-    echo -ne '\bDone!'
 }
 
 # Banner display
@@ -49,16 +49,22 @@ install_tor() {
 # Function to change IP using Tor
 change_ip() {
     echo -e "$(random_color 'Starting Tor and changing IP...')"
-    
-    # Start Tor in the background
-    tor &
-    
-    # Display loading animation while Tor starts
-    loading_animation
-    
+
+    # Start Tor in the background and redirect output to a log file
+    tor > tor_log.txt 2>&1 &
+
+    # Display loading animation while waiting for Tor to complete bootstrapping
+    loading_animation &
+
+    # Wait for Tor to bootstrap completely
+    grep -m 1 "Bootstrapped 100% (done): Done" <(tail -f tor_log.txt)
+
+    # Kill the loading animation
+    pkill -f "loading_animation"
+
     # Get the new IP address using a different service
     new_ip=$(curl --socks5 127.0.0.1:9050 -s https://api.ipify.org)
-    
+
     if [ $? -eq 0 ]; then
         echo -e "$(random_color "Your new IP address is: $new_ip")"
     else
